@@ -1,13 +1,2 @@
-# Node.js dependencies
 node_modules
-
-# Environment variables
 .env
-
-# Logs
-npm-debug.log
-yarn-error.log
-
-# OS files
-.DS_Store
-Thumbs.db
