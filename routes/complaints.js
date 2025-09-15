@@ -1,10 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const Complaint = require("../models/Complaint");
-const authMiddleware = require("../middleware/auth"); // JWT auth middleware
 
-// POST new complaint (authenticated)
-router.post("/", authMiddleware, async (req, res) => {
+// ------------------- Helper to simulate auth -------------------
+// If you want to later add JWT auth, you can replace this
+const mockAuthMiddleware = (req, res, next) => {
+  // Simulate a logged-in user
+  req.user = {
+    id: "mockUserId123", // Replace with real user ID from your frontend later
+    role: "employee",    // or "admin"
+  };
+  next();
+};
+
+// POST new complaint
+router.post("/", mockAuthMiddleware, async (req, res) => {
   try {
     const { title, description, priority, status } = req.body;
     if (!title || !priority) {
@@ -13,7 +23,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const complaint = new Complaint({
       ...req.body,
-      createdBy: req.user.id, // attach user ID from auth
+      createdBy: req.user.id, // attach user ID from simulated auth
     });
 
     await complaint.save();
@@ -23,8 +33,8 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// GET all complaints for logged-in user
-router.get("/user/:userId", authMiddleware, async (req, res) => {
+// GET all complaints for a specific user
+router.get("/user/:userId", mockAuthMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -39,8 +49,8 @@ router.get("/user/:userId", authMiddleware, async (req, res) => {
   }
 });
 
-// GET all complaints (admin only)
-router.get("/", authMiddleware, async (req, res) => {
+// GET all complaints (admin simulation)
+router.get("/", mockAuthMiddleware, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ success: false, message: "Admin access only" });
