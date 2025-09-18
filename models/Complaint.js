@@ -8,6 +8,11 @@ const ComplaintSchema = new mongoose.Schema({
   category: { type: String, required: true },
   complaint: { type: String, required: true },
   status: { type: String, default: "pending" },
+  assignedTo: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Employee', // Change this to 'User' if your employee model is called 'User'
+    default: null 
+  },
   date: { type: Date, default: Date.now }
 });
 
