@@ -13,10 +13,13 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET all complaints
+// GET complaints (all or assigned)
 router.get("/", async (req, res) => {
   try {
-    const complaints = await Complaint.find().populate('assignedTo', 'name email');
+    const { assignedTo } = req.query; // optional query for employee ID
+    const filter = assignedTo ? { assignedTo } : {}; // if assignedTo provided, filter complaints
+
+    const complaints = await Complaint.find(filter).populate('assignedTo', 'name email');
     res.json(complaints);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -29,7 +32,6 @@ router.put("/:id/assign", async (req, res) => {
     const { id } = req.params;
     const { employeeId } = req.body;
 
-    // Validate inputs
     if (!employeeId) {
       return res.status(400).json({ 
         success: false, 
@@ -37,7 +39,6 @@ router.put("/:id/assign", async (req, res) => {
       });
     }
 
-    // Find and update the complaint
     const complaint = await Complaint.findByIdAndUpdate(
       id,
       { assignedTo: employeeId },
@@ -54,9 +55,8 @@ router.put("/:id/assign", async (req, res) => {
     res.json({ 
       success: true, 
       message: "Complaint assigned successfully",
-      complaint: complaint
+      complaint
     });
-
   } catch (err) {
     console.error("Assignment error:", err);
     res.status(500).json({ 
