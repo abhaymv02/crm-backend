@@ -3,14 +3,24 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const router = express.Router();
-const SECRET_KEY = "my_secret_key";
+const SECRET_KEY = process.env.JWT_SECRET || "my_secret_key";
 
 // ---------------------- LOGIN ----------------------
 router.post("/login", async (req, res) => {
-  const { username, email, password } = req.body;
-
   try {
-    // Find user by username OR email
+    let { username, email, password } = req.body;
+
+    if ((!email && !username) || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email/Username and password required" });
+    }
+
+    // Normalize input
+    email = email?.trim().toLowerCase();
+    username = username?.trim();
+
+    // Find user by email OR username
     const user = await User.findOne({
       $or: [{ email }, { username }],
     });
@@ -21,22 +31,24 @@ router.post("/login", async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // ⚠️ Plain text check (use bcrypt in production)
+    // ⚠️ Plaintext check — recommend bcrypt for production
     if (user.password !== password) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid password" });
     }
 
-    // ✅ Always sign JWT with safe username + role
+    // Use fallback values if username or email are missing
     const safeUsername = user.username || user.email || user._id.toString();
+    const safeEmail = user.email || "";
     const safeRole = user.role || "employee";
 
+    // Create token
     const token = jwt.sign(
       {
-        id: user._id,
+        id: user._id.toString(),
         username: safeUsername,
-        email: user.email || "",
+        email: safeEmail,
         role: safeRole,
       },
       SECRET_KEY,
@@ -45,15 +57,13 @@ router.post("/login", async (req, res) => {
 
     console.log(`✅ User logged in: ${safeUsername} (${safeRole})`);
 
-    // Send back token + user details
     res.json({
       success: true,
       token,
-      role: safeRole,
       user: {
-        id: user._id,
+        _id: user._id,
         username: safeUsername,
-        email: user.email,
+        email: safeEmail,
         role: safeRole,
       },
     });
