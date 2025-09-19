@@ -13,13 +13,26 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET complaints (all or assigned)
+// GET complaints (all, by assignedTo ID, or by assignedEmail)
 router.get("/", async (req, res) => {
   try {
-    const { assignedTo } = req.query; // optional query for employee ID
-    const filter = assignedTo ? { assignedTo } : {}; // if assignedTo provided, filter complaints
+    const { assignedTo, assignedEmail } = req.query;
+    let filter = {};
 
-    const complaints = await Complaint.find(filter).populate('assignedTo', 'name email');
+    if (assignedTo) {
+      // filter by employee ObjectId (still supported)
+      filter.assignedTo = assignedTo;
+    }
+
+    let complaints = await Complaint.find(filter).populate("assignedTo", "name email");
+
+    // If email is provided, filter after population
+    if (assignedEmail) {
+      complaints = complaints.filter(
+        (c) => c.assignedTo?.email?.toLowerCase() === assignedEmail.toLowerCase()
+      );
+    }
+
     res.json(complaints);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -33,9 +46,9 @@ router.put("/:id/assign", async (req, res) => {
     const { employeeId } = req.body;
 
     if (!employeeId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Employee ID is required" 
+      return res.status(400).json({
+        success: false,
+        message: "Employee ID is required",
       });
     }
 
@@ -43,25 +56,25 @@ router.put("/:id/assign", async (req, res) => {
       id,
       { assignedTo: employeeId },
       { new: true }
-    ).populate('assignedTo', 'name email');
+    ).populate("assignedTo", "name email");
 
     if (!complaint) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Complaint not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
       });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Complaint assigned successfully",
-      complaint
+      complaint,
     });
   } catch (err) {
     console.error("Assignment error:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error assigning complaint: " + err.message 
+    res.status(500).json({
+      success: false,
+      message: "Error assigning complaint: " + err.message,
     });
   }
 });
