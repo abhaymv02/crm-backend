@@ -19,7 +19,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Simple request logger 
+// Simple request logger
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.url}`);
   next();
@@ -49,6 +49,7 @@ app.use("/api/complaints", complaintRoutes);
 
 // ---------------------- START SERVER ----------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
+
