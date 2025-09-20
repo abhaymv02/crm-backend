@@ -1,3 +1,4 @@
+
 const express = require("express");
 const router = express.Router();
 const Complaint = require("../models/Complaint");
@@ -16,12 +17,16 @@ router.post("/", async (req, res) => {
 // GET complaints (all, by assignedTo ID, or by assignedEmail)
 router.get("/", async (req, res) => {
   try {
-    const { assignedTo, assignedEmail } = req.query;
+    const { assignedTo, assignedEmail, status } = req.query;
     let filter = {};
 
     if (assignedTo) {
       // filter by employee ObjectId (still supported)
       filter.assignedTo = assignedTo;
+    }
+    if (status) {
+      // filter by status
+      filter.status = status;
     }
 
     let complaints = await Complaint.find(filter).populate("assignedTo", "name email");
@@ -33,7 +38,7 @@ router.get("/", async (req, res) => {
       );
     }
 
-    res.json(complaints);
+    res.json({ success: true, data: complaints });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -75,6 +80,55 @@ router.put("/:id/assign", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error assigning complaint: " + err.message,
+    });
+  }
+});
+
+// PATCH update complaint status
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
+    // Validate status (optional: restrict to specific values)
+    const validStatuses = ["pending", "in-progress", "resolved"];
+    if (!validStatuses.includes(status.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    const complaint = await Complaint.findByIdAndUpdate(
+      id,
+      { status: status.toLowerCase() },
+      { new: true }
+    ).populate("assignedTo", "name email");
+
+    if (!complaint) {
+      return res.status(404).json({
+        success: false,
+        message: "Complaint not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Complaint status updated successfully",
+      complaint,
+    });
+  } catch (err) {
+    console.error("Status update error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Error updating complaint status: " + err.message,
     });
   }
 });
