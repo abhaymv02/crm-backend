@@ -14,9 +14,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Email sending function for complaint confirmation
+// Complaint Confirmation Email
 async function sendComplaintConfirmation({ name, email, contact, company, category, complaint, reference }) {
   try {
+    const refNumber = reference || `CMP-${Date.now()}`; // ✅ Generate once
+
     const date = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -25,23 +27,26 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
       minute: '2-digit',
     });
 
-    // Read HTML template
-    let template = await fs.readFile(path.join(__dirname, '../templates/complaintConfirmation.html'), 'utf8');
+    // Load HTML template
+    let template = await fs.readFile(
+      path.join(__dirname, '../templates/complaintConfirmation.html'),
+      'utf8'
+    );
 
     // Replace placeholders
     template = template
       .replace('{{name}}', name)
       .replace('{{company}}', company || 'N/A')
       .replace('{{category}}', category || 'General')
-      .replace('{{contact}}', contact)
+      .replace('{{contact}}', contact || 'N/A')
       .replace('{{date}}', date)
-      .replace('{{reference}}', reference || `CMP-${Date.now()}`)
+      .replace('{{reference}}', refNumber)
       .replace('{{fromEmail}}', process.env.FROM_EMAIL);
 
     const mailOptions = {
       from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
       to: email,
-      subject: `Complaint Received #${reference || `CMP-${Date.now()}`} - Thank You for Reaching Out`,
+      subject: `Complaint Received #${refNumber} - Thank You for Reaching Out`,
       html: template,
       text: `
 Dear ${name},
@@ -52,10 +57,10 @@ Your Submission Details:
 - Name: ${name}
 - Company: ${company || 'N/A'}
 - Category: ${category || 'General'}
-- Contact: ${contact}
+- Contact: ${contact || 'N/A'}
 - Date: ${date}
 
-Your complaint reference number is #${reference || `CMP-${Date.now()}`}. Please keep this for your records.
+Your complaint reference number is #${refNumber}. Please keep this for your records.
 
 For urgent assistance, call our support line at +1-800-123-4567 (available 24/7).
 
@@ -69,25 +74,21 @@ This is an automated message. Please do not reply directly to this email.
 
     const info = await transporter.sendMail(mailOptions);
     console.log('Confirmation email sent:', info.messageId);
-    return { success: true, messageId: info.messageId, reference: reference || `CMP-${Date.now()}` };
+    return { success: true, messageId: info.messageId, reference: refNumber };
   } catch (error) {
     console.error('Error sending confirmation email:', error);
     return { success: false, message: error.message };
   }
 }
 
-// Generic email sending function
+// Generic Email
 async function sendEmail({ to, subject, body, fromName = process.env.FROM_NAME, fromEmail = process.env.FROM_EMAIL, isConfirmation = false, complaintData = null }) {
   try {
-    let mailOptions;
-
     if (isConfirmation && complaintData) {
-      const result = await sendComplaintConfirmation({ ...complaintData, email: to });
-      return result;
+      return await sendComplaintConfirmation({ ...complaintData, email: to });
     }
 
-    // Fallback to generic email
-    mailOptions = {
+    const mailOptions = {
       from: `"${fromName}" <${fromEmail}>`,
       to,
       subject,

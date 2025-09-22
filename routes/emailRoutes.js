@@ -57,8 +57,17 @@ router.post('/send-confirmation', async (req, res) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email address provided',
+      });
+    }
+
     const result = await sendComplaintConfirmation({
-      to,
+      email: to, // ✅ FIX: use correct key
       name,
       contact,
       company,
