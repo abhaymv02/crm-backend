@@ -3,23 +3,31 @@ const fs = require('fs').promises;
 const path = require('path');
 require('dotenv').config();
 
+// Validate environment variables
+const requiredEnvVars = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS', 'FROM_EMAIL', 'FROM_NAME'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error(`❌ Missing environment variables: ${missingEnvVars.join(', ')}`);
+  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+}
+
 // Enhanced transporter configuration with better error handling
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: process.env.EMAIL_PORT == '465', // true for 465, false for other ports
+  port: parseInt(process.env.EMAIL_PORT, 10) || 587,
+  secure: process.env.EMAIL_PORT === '465', // true for 465 (SSL), false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: process.env.NODE_ENV === 'production'
+    rejectUnauthorized: process.env.NODE_ENV === 'production',
   },
   pool: true, // Use pooled connections
   maxConnections: 5,
   maxMessages: 10,
-  rateDelta: 1000, // Rate limit: 1 second between messages
-  rateLimit: 5 // Rate limit: max 5 messages per rateDelta
+  rateDelta: 5000, // Adjusted to 5 seconds between messages for testing
+  rateLimit: 10, // Increased to 10 messages per rateDelta for flexibility
 });
 
 // Verify transporter configuration on startup
@@ -50,78 +58,18 @@ const getDefaultTemplate = (data) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Complaint Confirmation</title>
         <style>
-            body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                line-height: 1.6; 
-                margin: 0; 
-                padding: 0; 
-                background-color: #f8f9fa;
-                color: #333;
-            }
-            .container { 
-                max-width: 600px; 
-                margin: 0 auto; 
-                background: white; 
-                border-radius: 12px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                overflow: hidden;
-            }
-            .header { 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white; 
-                padding: 2rem; 
-                text-align: center;
-            }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f8f9fa; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; text-align: center; }
             .content { padding: 2rem; }
-            .footer { 
-                background: #f8f9fa; 
-                padding: 1rem 2rem; 
-                text-align: center; 
-                font-size: 0.9em; 
-                color: #6c757d;
-            }
-            .reference-box {
-                background: #e3f2fd;
-                padding: 15px;
-                border-radius: 8px;
-                margin: 20px 0;
-                text-align: center;
-                border-left: 4px solid #2196f3;
-            }
-            .details-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                margin: 20px 0;
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 8px;
-            }
-            .detail-item {
-                padding: 5px 0;
-            }
-            .label {
-                font-weight: bold;
-                color: #495057;
-            }
-            .next-steps {
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                border-radius: 8px;
-                padding: 15px;
-                margin: 20px 0;
-            }
-            .next-steps h3 {
-                margin-top: 0;
-                color: #856404;
-            }
-            .contact-info {
-                background: #d1ecf1;
-                border: 1px solid #b8daff;
-                border-radius: 8px;
-                padding: 15px;
-                margin: 20px 0;
-            }
+            .footer { background: #f8f9fa; padding: 1rem 2rem; text-align: center; font-size: 0.9em; color: #6c757d; }
+            .reference-box { background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; border-left: 4px solid #2196f3; }
+            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+            .detail-item { padding: 5px 0; }
+            .label { font-weight: bold; color: #495057; }
+            .next-steps { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0; }
+            .next-steps h3 { margin-top: 0; color: #856404; }
+            .contact-info { background: #d1ecf1; border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin: 20px 0; }
         </style>
     </head>
     <body>
@@ -130,63 +78,38 @@ const getDefaultTemplate = (data) => {
                 <h1>✅ Complaint Received</h1>
                 <p>Thank you for reaching out to us</p>
             </div>
-            
             <div class="content">
                 <p>Dear ${data.name},</p>
-                
                 <p>We have successfully received your complaint and our support team is reviewing it. We appreciate you taking the time to bring this matter to our attention.</p>
-                
                 <div class="reference-box">
                     <div class="label">Your Reference Number:</div>
                     <h2 style="margin: 5px 0; color: #2196f3;">#${data.reference}</h2>
                     <small>Please keep this reference number for your records</small>
                 </div>
-                
                 <div class="details-grid">
-                    <div class="detail-item">
-                        <div class="label">Name:</div>
-                        <div>${data.name}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="label">Company:</div>
-                        <div>${data.company}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="label">Category:</div>
-                        <div>${data.category}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="label">Contact:</div>
-                        <div>${data.contact}</div>
-                    </div>
-                    <div class="detail-item" style="grid-column: 1 / -1;">
-                        <div class="label">Date Submitted:</div>
-                        <div>${data.date}</div>
-                    </div>
+                    <div class="detail-item"><div class="label">Name:</div><div>${data.name}</div></div>
+                    <div class="detail-item"><div class="label">Company:</div><div>${data.company}</div></div>
+                    <div class="detail-item"><div class="label">Category:</div><div>${data.category}</div></div>
+                    <div class="detail-item"><div class="label">Contact:</div><div>${data.contact}</div></div>
+                    <div class="detail-item" style="grid-column: 1 / -1;"><div class="label">Date Submitted:</div><div>${data.date}</div></div>
                 </div>
-                
                 <div class="next-steps">
                     <h3>What happens next?</h3>
-                    <ul>
-                        <li>🔍 Our team will review your complaint within 24-48 hours</li>
+                    <ul><li>🔍 Our team will review your complaint within 24-48 hours</li>
                         <li>📞 We'll contact you via phone or email for any clarifications</li>
                         <li>✅ You'll receive updates on the resolution progress</li>
-                        <li>📧 A final resolution email will be sent once completed</li>
-                    </ul>
+                        <li>📧 A final resolution email will be sent once completed</li></ul>
                 </div>
-                
                 <div class="contact-info">
                     <h3>Need urgent assistance?</h3>
                     <p>📞 <strong>Phone:</strong> ${process.env.SUPPORT_PHONE || '+1-800-123-4567'} (Available 24/7)<br>
                     📧 <strong>Email:</strong> ${process.env.SUPPORT_EMAIL || 'support@company.com'}</p>
                 </div>
             </div>
-            
             <div class="footer">
                 <p><strong>${process.env.FROM_NAME || 'Customer Support Team'}</strong><br>
                 ${process.env.COMPANY_NAME || 'Your Company'}<br>
                 ${data.fromEmail}</p>
-                
                 <p><small>This is an automated message. Please do not reply directly to this email.<br>
                 If you need to add more information to your complaint, please call our support line.</small></p>
             </div>
@@ -208,7 +131,7 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
+      timeZoneName: 'short',
     });
 
     // Sanitize inputs to prevent XSS
@@ -217,21 +140,17 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
       email: email?.toLowerCase().trim(),
       contact: sanitizeInput(contact),
       company: sanitizeInput(company) || 'N/A',
-      category: category || 'General',
+      category: sanitizeInput(category) || 'General',
       complaint: sanitizeInput(complaint),
       reference: complaintReference,
       date,
-      fromEmail: process.env.FROM_EMAIL
+      fromEmail: process.env.FROM_EMAIL,
     };
 
     let template;
-    
     try {
-      // Try to read HTML template file
       const templatePath = path.join(__dirname, '../templates/complaintConfirmation.html');
       template = await fs.readFile(templatePath, 'utf8');
-      
-      // Replace placeholders in template
       template = template
         .replace(/{{name}}/g, sanitizedData.name)
         .replace(/{{company}}/g, sanitizedData.company)
@@ -244,14 +163,11 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
         .replace(/{{supportPhone}}/g, process.env.SUPPORT_PHONE || '+1-800-123-4567')
         .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || 'support@company.com')
         .replace(/{{companyName}}/g, process.env.COMPANY_NAME || 'Your Company');
-        
     } catch (templateError) {
       console.warn('⚠️ Could not read template file, using default template:', templateError.message);
-      // Use default template if file doesn't exist
       template = getDefaultTemplate(sanitizedData);
     }
 
-    // Enhanced text version
     const textVersion = `
 Dear ${sanitizedData.name},
 
@@ -293,7 +209,7 @@ Keep your reference number #${sanitizedData.reference} for your records.
     const mailOptions = {
       from: {
         name: process.env.FROM_NAME || 'Customer Support Team',
-        address: process.env.FROM_EMAIL
+        address: process.env.FROM_EMAIL,
       },
       to: sanitizedData.email,
       subject: `Complaint Received #${sanitizedData.reference} - Thank You for Reaching Out`,
@@ -303,30 +219,27 @@ Keep your reference number #${sanitizedData.reference} for your records.
       headers: {
         'X-Complaint-Reference': sanitizedData.reference,
         'X-Category': sanitizedData.category,
-        'X-Mailer': 'CRM-System-v1.0'
-      }
+        'X-Mailer': 'CRM-System-v1.0',
+      },
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
     console.log(`📧 Confirmation email sent to ${sanitizedData.email}:`, info.messageId);
     console.log(`📋 Reference: ${sanitizedData.reference}`);
-    
-    return { 
-      success: true, 
-      messageId: info.messageId, 
+
+    return {
+      success: true,
+      messageId: info.messageId,
       reference: sanitizedData.reference,
       emailSent: true,
-      recipient: sanitizedData.email
+      recipient: sanitizedData.email,
     };
-    
   } catch (error) {
     console.error('❌ Error sending confirmation email:', error);
-    
-    // Enhanced error handling
+
     let errorMessage = 'Failed to send confirmation email';
     let errorCode = 'EMAIL_SEND_ERROR';
-    
+
     if (error.code === 'EAUTH') {
       errorMessage = 'Email authentication failed. Please check email credentials.';
       errorCode = 'AUTH_ERROR';
@@ -337,65 +250,61 @@ Keep your reference number #${sanitizedData.reference} for your records.
       errorMessage = 'Invalid recipient email address.';
       errorCode = 'INVALID_RECIPIENT';
     }
-    
-    return { 
-      success: false, 
-      message: errorMessage, 
+
+    return {
+      success: false,
+      message: errorMessage,
       error: errorCode,
       details: error.message,
-      emailSent: false
+      emailSent: false,
     };
   }
 }
 
 // Enhanced generic email sending function
-async function sendEmail({ 
-  to, 
-  subject, 
-  body, 
+async function sendEmail({
+  to,
+  subject,
+  body,
   html,
-  fromName = process.env.FROM_NAME, 
-  fromEmail = process.env.FROM_EMAIL, 
-  isConfirmation = false, 
+  fromName = process.env.FROM_NAME,
+  fromEmail = process.env.FROM_EMAIL,
+  isConfirmation = false,
   complaintData = null,
-  priority = 'normal' 
+  priority = 'normal',
 }) {
   try {
-    // If it's a complaint confirmation, use the specialized function
     if (isConfirmation && complaintData) {
       const result = await sendComplaintConfirmation({ ...complaintData, email: to });
       return result;
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(to)) {
       return {
         success: false,
         message: 'Invalid email address format',
         error: 'INVALID_EMAIL_FORMAT',
-        emailSent: false
+        emailSent: false,
       };
     }
 
-    // Sanitize inputs
     const sanitizedSubject = sanitizeInput(subject);
     const sanitizedBody = sanitizeInput(body);
 
     const mailOptions = {
       from: {
         name: fromName || 'Support Team',
-        address: fromEmail || process.env.FROM_EMAIL
+        address: fromEmail || process.env.FROM_EMAIL,
       },
       to: to.toLowerCase().trim(),
       subject: sanitizedSubject,
-      priority: priority,
+      priority,
       headers: {
-        'X-Mailer': 'CRM-System-v1.0'
-      }
+        'X-Mailer': 'CRM-System-v1.0',
+      },
     };
 
-    // Use provided HTML or convert text to HTML
     if (html) {
       mailOptions.html = html;
       mailOptions.text = sanitizedBody; // Fallback text version
@@ -417,24 +326,21 @@ async function sendEmail({
     }
 
     const info = await transporter.sendMail(mailOptions);
-    
     console.log(`📧 Email sent to ${to}:`, info.messageId);
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       messageId: info.messageId,
       emailSent: true,
       recipient: to,
-      subject: sanitizedSubject
+      subject: sanitizedSubject,
     };
-    
   } catch (error) {
     console.error('❌ Error sending email:', error);
-    
-    // Enhanced error handling
+
     let errorMessage = 'Failed to send email';
     let errorCode = 'EMAIL_SEND_ERROR';
-    
+
     if (error.code === 'EAUTH') {
       errorMessage = 'Email authentication failed';
       errorCode = 'AUTH_ERROR';
@@ -445,33 +351,33 @@ async function sendEmail({
       errorMessage = 'Invalid recipient email address';
       errorCode = 'INVALID_RECIPIENT';
     }
-    
-    return { 
-      success: false, 
+
+    return {
+      success: false,
       message: errorMessage,
       error: errorCode,
       details: error.message,
-      emailSent: false
+      emailSent: false,
     };
   }
 }
 
-// Test email connection
+// Test email connection (optional, for debugging)
 async function testEmailConnection() {
   try {
     await transporter.verify();
     console.log('✅ Email connection verified successfully');
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: 'Email connection verified successfully',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
     console.error('❌ Email connection test failed:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       message: error.message,
-      error: error.code || 'CONNECTION_TEST_FAILED'
+      error: error.code || 'CONNECTION_TEST_FAILED',
     };
   }
 }
@@ -482,13 +388,12 @@ const closeTransporter = () => {
   console.log('📧 Email transporter closed');
 };
 
-// Handle process termination
 process.on('SIGTERM', closeTransporter);
 process.on('SIGINT', closeTransporter);
 
-module.exports = { 
-  sendEmail, 
+module.exports = {
+  sendEmail,
   sendComplaintConfirmation,
   testEmailConnection,
-  closeTransporter
+  closeTransporter,
 };
