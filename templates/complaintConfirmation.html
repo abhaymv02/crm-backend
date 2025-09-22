@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaint Confirmation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+            <td style="padding: 20px 0;">
+                <table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 0 auto;">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 300;">
+                                Complaint Received
+                            </h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">
+                                Thank you for reaching out
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Content -->
+                    <tr>
+                        <td style="background-color: white; padding: 40px 30px; border-radius: 0 0 10px 10px;">
+                            <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 0 0 20px 0;">
+                                Dear <strong>{{name}}</strong>,
+                            </p>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 0 0 20px 0;">
+                                Thank you for submitting your complaint. We have successfully received your request and our support team is reviewing it. We aim to respond within 24-48 hours.
+                            </p>
+                            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 30px 0;">
+                                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 18px;">Your Submission Details:</h3>
+                                <table style="width: 100%; font-size: 14px; color: #555;">
+                                    <tr><td style="padding: 5px 0; font-weight: bold;">Name:</td><td style="padding: 5px 0;">{{name}}</td></tr>
+                                    <tr><td style="padding: 5px 0; font-weight: bold;">Company:</td><td style="padding: 5px 0;">{{company}}</td></tr>
+                                    <tr><td style="padding: 5px 0; font-weight: bold;">Category:</td><td style="padding: 5px 0;">{{category}}</td></tr>
+                                    <tr><td style="padding: 5px 0; font-weight: bold;">Contact:</td><td style="padding: 5px 0;">{{contact}}</td></tr>
+                                    <tr><td style="padding: 5px 0; font-weight: bold;">Date:</td><td style="padding: 5px 0;">{{date}}</td></tr>
+                                </table>
+                            </div>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333; margin: 0 0 20px 0;">
+                                Your complaint reference number is <strong>#{{reference}}</strong>. Please keep this for your records.
+                            </p>
+                            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                                <p style="font-size: 14px; line-height: 1.5; color: #1976d2; margin: 0;">
+                                    <strong>Need urgent assistance?</strong> Call our support line at <a href="tel:+18001234567" style="color: #1976d2;">+1-800-123-4567</a> (available 24/7)
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-radius: 0 0 10px 10px;">
+                            <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 10px 0;">
+                                Best regards,<br>
+                                <strong>Customer Support Team</strong>
+                            </p>
+                            <p style="color: #6c757d; font-size: 12px; margin: 0;">
+                                <a href="mailto:{{fromEmail}}" style="color: #6c757d;">{{fromEmail}}</a> |
+                                <a href="tel:+18001234567" style="color: #6c757d;">+1-800-123-4567</a>
+                            </p>
+                            <p style="color: #adb5bd; font-size: 11px; margin: 15px 0 0 0;">
+                                This is an automated message. Please do not reply directly to this email.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
