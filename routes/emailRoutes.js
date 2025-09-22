@@ -2,11 +2,17 @@ const express = require('express');
 const { sendEmail, sendComplaintConfirmation } = require('../services/emailService');
 const router = express.Router();
 
-// POST /api/email/send-email - Generic email sending
+// ---------------------- UTILITY ----------------------
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// ---------------------- POST /send-email ----------------------
 router.post('/send-email', async (req, res) => {
   try {
     const { to, subject, body } = req.body;
 
+    console.log("📩 /send-email request body:", req.body);
+
+    // Validate required fields
     if (!to || !subject || !body) {
       return res.status(400).json({
         success: false,
@@ -14,8 +20,8 @@ router.post('/send-email', async (req, res) => {
       });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(to)) {
+    // Validate email
+    if (!isValidEmail(to)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid email address provided',
@@ -24,32 +30,37 @@ router.post('/send-email', async (req, res) => {
 
     const result = await sendEmail({ to, subject, body });
 
+    console.log("📩 /send-email result:", result);
+
     if (result.success) {
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         message: 'Email sent successfully',
         messageId: result.messageId,
       });
     } else {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Failed to send email: ' + result.message,
       });
     }
   } catch (error) {
-    console.error('Email route error:', error);
-    res.status(500).json({
+    console.error('❌ /send-email error:', error);
+    return res.status(500).json({
       success: false,
       message: 'Internal server error while sending email',
     });
   }
 });
 
-// POST /api/email/send-confirmation - Specific for complaint confirmations
+// ---------------------- POST /send-confirmation ----------------------
 router.post('/send-confirmation', async (req, res) => {
   try {
     const { to, name, contact, company, category, complaint, reference } = req.body;
 
+    console.log("📩 /send-confirmation request body:", req.body);
+
+    // Validate required fields
     if (!to || !name) {
       return res.status(400).json({
         success: false,
@@ -57,9 +68,8 @@ router.post('/send-confirmation', async (req, res) => {
       });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(to)) {
+    // Validate email
+    if (!isValidEmail(to)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid email address provided',
@@ -67,7 +77,7 @@ router.post('/send-confirmation', async (req, res) => {
     }
 
     const result = await sendComplaintConfirmation({
-      email: to, // ✅ FIX: use correct key
+      email: to,  // ✅ required key for emailService
       name,
       contact,
       company,
@@ -76,22 +86,24 @@ router.post('/send-confirmation', async (req, res) => {
       reference,
     });
 
+    console.log("📩 /send-confirmation result:", result);
+
     if (result.success) {
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         message: 'Confirmation email sent successfully',
         messageId: result.messageId,
         reference: result.reference,
       });
     } else {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: 'Failed to send confirmation email: ' + result.message,
       });
     }
   } catch (error) {
-    console.error('Confirmation email route error:', error);
-    res.status(500).json({
+    console.error('❌ /send-confirmation error:', error);
+    return res.status(500).json({
       success: false,
       message: 'Internal server error while sending confirmation email',
     });

@@ -20,9 +20,12 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Simple request logger
+// Enhanced request logger for debugging
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.url}`);
+  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+    console.log("📦 Body:", JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
@@ -49,10 +52,21 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/email", emailRoutes);
 
+// ---------------------- ERROR HANDLING ----------------------
+app.use((err, req, res, next) => {
+  console.error("❌ Unhandled error:", err);
+  res.status(500).json({
+    success: false,
+    message: "Internal server error",
+  });
+});
 
 // ---------------------- START SERVER ----------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🌐 Available endpoints:`);
+  console.log(`  GET /`);
+  console.log(`  POST /api/email/send-email`);
+  console.log(`  POST /api/email/send-confirmation`);
 });
-
