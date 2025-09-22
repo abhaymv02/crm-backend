@@ -1,20 +1,15 @@
-const nodemailer = require("nodemailer");
+// services/emailService.js
 const fs = require("fs").promises;
 const path = require("path");
 require("dotenv").config();
+const sgMail = require("@sendgrid/mail");
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  logger: true,
-  debug: true,
-});
+// Configure SendGrid API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+/**
+ * Send complaint confirmation email
+ */
 async function sendComplaintConfirmation({ name, email, contact, company, category, complaint, reference }) {
   try {
     const refNumber = reference || `CMP-${Date.now()}`;
@@ -28,11 +23,13 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
 
     console.log("📧 Sending complaint confirmation email to:", email, "Ref:", refNumber);
 
+    // Load HTML template
     let template = await fs.readFile(
       path.join(__dirname, "../templates/complaintConfirmation.html"),
       "utf8"
     );
 
+    // Replace placeholders
     template = template
       .replace(/{{name}}/g, name)
       .replace(/{{company}}/g, company || "N/A")
@@ -42,11 +39,13 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
       .replace(/{{reference}}/g, refNumber)
       .replace(/{{fromEmail}}/g, process.env.FROM_EMAIL);
 
-    const mailOptions = {
-      from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
+    const msg = {
       to: email,
+      from: {
+        email: process.env.FROM_EMAIL,
+        name: process.env.FROM_NAME || "Customer Support Team",
+      },
       subject: `Complaint Received #${refNumber} - Thank You for Reaching Out`,
-      html: template,
       text: `
 Dear ${name},
 
@@ -69,34 +68,40 @@ ${process.env.FROM_EMAIL}
 
 This is an automated message. Please do not reply directly to this email.
       `,
+      html: template,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Confirmation email sent:", info.messageId);
-    return { success: true, messageId: info.messageId, reference: refNumber };
+    await sgMail.send(msg);
+
+    console.log("✅ Confirmation email sent to:", email);
+    return { success: true, reference: refNumber };
   } catch (error) {
     console.error("❌ Error sending confirmation email:", error.message, error);
     return { success: false, message: error.message };
   }
 }
 
+/**
+ * Generic email sender
+ */
 async function sendEmail({ to, subject, body, fromName = process.env.FROM_NAME, fromEmail = process.env.FROM_EMAIL, isConfirmation = false, complaintData = null }) {
   try {
     if (isConfirmation && complaintData) {
       return await sendComplaintConfirmation({ ...complaintData, email: to });
     }
 
-    const mailOptions = {
-      from: `"${fromName}" <${fromEmail}>`,
+    const msg = {
       to,
+      from: { email: fromEmail, name: fromName },
       subject,
       text: body,
       html: `<div>${body.replace(/\n/g, "<br>")}</div>`,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent successfully:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    await sgMail.send(msg);
+
+    console.log("✅ Email sent successfully to:", to);
+    return { success: true };
   } catch (error) {
     console.error("❌ Error sending email:", error.message, error);
     return { success: false, message: error.message };
