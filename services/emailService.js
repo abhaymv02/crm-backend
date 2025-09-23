@@ -45,7 +45,7 @@ async function sendComplaintConfirmation({ name, email, contact, company, catego
         email: process.env.FROM_EMAIL,
         name: process.env.FROM_NAME || "Customer Support Team",
       },
-      subject: `Complaint Received #${refNumber} - Thank You for Reaching Out`,
+      subject: `Complaint Received - Thank You for Reaching Out`,
       text: `
 Dear ${name},
 
