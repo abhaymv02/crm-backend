@@ -18,12 +18,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ------------------- Routes -------------------
-
 // Add Employee
 router.post("/", upload.single("profilePic"), async (req, res) => {
   try {
     console.log("📥 Employee request received:", req.body);
 
+    // 1️⃣ Create employee
     const newEmployee = new Employee({
       name: req.body.name,
       department: req.body.department,
@@ -39,11 +39,12 @@ router.post("/", upload.single("profilePic"), async (req, res) => {
 
     await newEmployee.save();
 
+    // 2️⃣ Also create login user
     const newUser = new User({
       username: req.body.username,
       email: req.body.email,
       password: req.body.password,
-      role: "employee",
+      role: "employee", // 👈 default role
     });
 
     await newUser.save();
@@ -59,51 +60,11 @@ router.post("/", upload.single("profilePic"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const employees = await Employee.find();
-    res.json({ success: true, data: employees });
+    res.json(employees);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get Employee by ID
-router.get("/:id", async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({ error: "Employee not found" });
-    }
-    res.json({ success: true, data: employee });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update Employee
-router.put("/:id", upload.single("profilePic"), async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-
-    if (!employee) {
-      return res.status(404).json({ error: "Employee not found" });
-    }
-
-    employee.name = req.body.name || employee.name;
-    employee.department = req.body.department || employee.department;
-    employee.designation = req.body.designation || employee.designation;
-    employee.email = req.body.email || employee.email;
-    employee.phone = req.body.phone || employee.phone;
-    employee.address = req.body.address || employee.address;
-    if (req.file) {
-      employee.profilePic = req.file.filename;
-    }
-
-    await employee.save();
-
-    res.status(200).json({ success: true, message: "✅ Employee updated successfully", data: employee });
-  } catch (err) {
-    console.error("❌ Error updating employee:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = router;
