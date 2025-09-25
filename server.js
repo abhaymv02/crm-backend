@@ -3,10 +3,11 @@ require("dotenv").config(); // Load .env file
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const mongoose = require("mongoose");
 const path = require("path");
 
-// Import routes
+const pool = require("./db"); // MySQL connection
+
+// Import routes (you will need to update them later)
 const authRoutes = require("./routes/auth");
 const employeeRoutes = require("./routes/employees");
 const departmentRoutes = require("./routes/departments");
@@ -20,10 +21,9 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Enhanced request logger for debugging
 app.use((req, res, next) => {
   console.log(`➡️ ${req.method} ${req.url}`);
-  if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+  if (["POST", "PUT", "PATCH"].includes(req.method)) {
     console.log("📦 Body:", JSON.stringify(req.body, null, 2));
   }
   next();
@@ -31,14 +31,6 @@ app.use((req, res, next) => {
 
 // Serve profile images
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// ---------------------- CONNECT TO MONGODB ----------------------
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ---------------------- ROUTES ----------------------
 app.get("/", (req, res) => {
@@ -65,8 +57,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌐 Available endpoints:`);
-  console.log(`  GET /`);
-  console.log(`  POST /api/email/send-email`);
-  console.log(`  POST /api/email/send-confirmation`);
 });

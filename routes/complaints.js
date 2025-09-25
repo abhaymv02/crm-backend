@@ -1,30 +1,44 @@
 const express = require("express");
 const router = express.Router();
-const Complaint = require("../models/Complaint");
+const pool = require("../db"); // MySQL connection
 const { sendComplaintConfirmation } = require("../services/emailService");
 
 // ---------------------- POST new complaint ----------------------
 router.post("/", async (req, res) => {
   try {
-    const complaint = new Complaint(req.body);
-    await complaint.save();
+    const {
+      name,
+      email,
+      contact,
+      company,
+      category,
+      complaint
+    } = req.body;
 
-    // Generate reference number if not provided
     const reference = `CMP-${Date.now()}`;
 
-    // Send confirmation email asynchronously
+    // Insert complaint into MySQL
+    const [result] = await pool.query(
+      `INSERT INTO complaints (name, email, contact, company, category, complaint, reference)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, email, contact, company, category, complaint, reference]
+    );
+
+    const complaintId = result.insertId;
+
+    // Send confirmation email
     const emailResult = await sendComplaintConfirmation({
-      email: complaint.email,
-      name: complaint.name,
-      contact: complaint.contact,
-      company: complaint.company,
-      category: complaint.category,
-      complaint: complaint.complaint,
+      email,
+      name,
+      contact,
+      company,
+      category,
+      complaint,
       reference,
     });
 
     if (emailResult.success) {
-      console.log(`📧 Confirmation email sent to ${complaint.email} Ref: ${reference}`);
+      console.log(`📧 Confirmation email sent to ${email} Ref: ${reference}`);
     } else {
       console.error(`❌ Failed to send confirmation email: ${emailResult.message}`);
     }
@@ -32,7 +46,7 @@ router.post("/", async (req, res) => {
     res.json({
       success: true,
       message: "Complaint submitted successfully",
-      complaintId: complaint._id,
+      complaintId,
       emailSent: emailResult.success,
       reference,
     });
@@ -46,20 +60,35 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const { assignedTo, assignedEmail, status } = req.query;
-    let filter = {};
 
-    if (assignedTo) filter.assignedTo = assignedTo;
-    if (status) filter.status = status.toLowerCase();
+    let query = `
+      SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
+      FROM complaints c
+      LEFT JOIN employees e ON c.assigned_to = e.id
+      WHERE 1=1
+    `;
+    const params = [];
 
-    let complaints = await Complaint.find(filter).populate("assignedTo", "name email");
+    if (assignedTo) {
+      query += " AND c.assigned_to = ?";
+      params.push(assignedTo);
+    }
+    if (status) {
+      query += " AND c.status = ?";
+      params.push(status.toLowerCase());
+    }
+
+    const [complaints] = await pool.query(query, params);
+
+    let filtered = complaints;
 
     if (assignedEmail) {
-      complaints = complaints.filter(
-        (c) => c.assignedTo?.email?.toLowerCase() === assignedEmail.toLowerCase()
+      filtered = complaints.filter(
+        (c) => c.assigned_email?.toLowerCase() === assignedEmail.toLowerCase()
       );
     }
 
-    res.json({ success: true, data: complaints });
+    res.json({ success: true, data: filtered });
   } catch (err) {
     console.error("Error fetching complaints:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -76,20 +105,33 @@ router.put("/:id/assign", async (req, res) => {
       return res.status(400).json({ success: false, message: "Employee ID is required" });
     }
 
-    const complaint = await Complaint.findByIdAndUpdate(
-      id,
-      { assignedTo: employeeId },
-      { new: true }
-    ).populate("assignedTo", "name email");
+    const [result] = await pool.query(
+      "UPDATE complaints SET assigned_to = ? WHERE id = ?",
+      [employeeId, id]
+    );
 
-    if (!complaint) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Complaint not found" });
     }
 
-    res.json({ success: true, message: "Complaint assigned successfully", complaint });
+    const [updatedComplaint] = await pool.query(
+      `
+      SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
+      FROM complaints c
+      LEFT JOIN employees e ON c.assigned_to = e.id
+      WHERE c.id = ?
+      `,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: "Complaint assigned successfully",
+      complaint: updatedComplaint[0],
+    });
   } catch (err) {
     console.error("Assignment error:", err);
-    res.status(500).json({ success: false, message: "Error assigning complaint: " + err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -99,7 +141,9 @@ router.patch("/:id/status", async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status) return res.status(400).json({ success: false, message: "Status is required" });
+    if (!status) {
+      return res.status(400).json({ success: false, message: "Status is required" });
+    }
 
     const validStatuses = ["pending", "in-progress", "resolved"];
     if (!validStatuses.includes(status.toLowerCase())) {
@@ -109,20 +153,33 @@ router.patch("/:id/status", async (req, res) => {
       });
     }
 
-    const complaint = await Complaint.findByIdAndUpdate(
-      id,
-      { status: status.toLowerCase() },
-      { new: true }
-    ).populate("assignedTo", "name email");
+    const [result] = await pool.query(
+      "UPDATE complaints SET status = ? WHERE id = ?",
+      [status.toLowerCase(), id]
+    );
 
-    if (!complaint) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Complaint not found" });
     }
 
-    res.json({ success: true, message: "Complaint status updated successfully", complaint });
+    const [updatedComplaint] = await pool.query(
+      `
+      SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
+      FROM complaints c
+      LEFT JOIN employees e ON c.assigned_to = e.id
+      WHERE c.id = ?
+      `,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: "Complaint status updated successfully",
+      complaint: updatedComplaint[0],
+    });
   } catch (err) {
     console.error("Status update error:", err);
-    res.status(500).json({ success: false, message: "Error updating complaint status: " + err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

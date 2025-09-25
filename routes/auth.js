@@ -1,6 +1,6 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const pool = require("../db"); // MySQL connection
 
 const router = express.Router();
 const SECRET_KEY = process.env.JWT_SECRET || "my_secret_key";
@@ -11,45 +11,49 @@ router.post("/login", async (req, res) => {
     let { username, email, password } = req.body;
 
     if ((!email && !username) || !password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email/Username and password required" });
+      return res.status(400).json({
+        success: false,
+        message: "Email/Username and password required"
+      });
     }
 
-    // Normalize input
     email = email?.trim().toLowerCase();
     username = username?.trim();
 
-    // Find user by email OR username
-    const user = await User.findOne({
-      $or: [{ email }, { username }],
-    });
+    // MySQL query to find user by email or username
+    const [rows] = await pool.query(
+      "SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1",
+      [email || "", username || ""]
+    );
+
+    const user = rows[0];
 
     if (!user) {
-      return res
-        .status(401)
-        .json({ success: false, message: "User not found" });
+      return res.status(401).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
     // ⚠️ Plaintext check — recommend bcrypt for production
     if (user.password !== password) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid password" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password"
+      });
     }
 
-    // Use fallback values if username or email are missing
-    const safeUsername = user.username || user.email || user._id.toString();
+    const safeUsername = user.username || user.email || user.id.toString();
     const safeEmail = user.email || "";
     const safeRole = user.role || "employee";
 
     // Create token
     const token = jwt.sign(
       {
-        id: user._id.toString(),
+        id: user.id.toString(),
         username: safeUsername,
         email: safeEmail,
-        role: safeRole,
+        role: safeRole
       },
       SECRET_KEY,
       { expiresIn: "1h" }
@@ -61,11 +65,11 @@ router.post("/login", async (req, res) => {
       success: true,
       token,
       user: {
-        _id: user._id,
+        id: user.id,
         username: safeUsername,
         email: safeEmail,
-        role: safeRole,
-      },
+        role: safeRole
+      }
     });
   } catch (err) {
     console.error("❌ Login error:", err);
@@ -76,7 +80,8 @@ router.post("/login", async (req, res) => {
 // ---------------------- VERIFY TOKEN ----------------------
 router.post("/verifyToken", (req, res) => {
   const { token } = req.body;
-  if (!token) return res.json({ success: false, message: "No token provided" });
+  if (!token)
+    return res.json({ success: false, message: "No token provided" });
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
@@ -86,8 +91,8 @@ router.post("/verifyToken", (req, res) => {
         id: decoded.id,
         username: decoded.username,
         email: decoded.email,
-        role: decoded.role,
-      },
+        role: decoded.role
+      }
     });
   } catch (err) {
     console.warn("❌ Invalid or expired token");
