@@ -19,7 +19,7 @@ router.post("/", async (req, res) => {
 
     // Insert complaint into MySQL
     const [result] = await pool.query(
-      `INSERT INTO complaints (name, email, contact, company, category, complaint, reference)
+      `INSERT INTO tasks_complaint (name, email, contact, company, category, complaint, reference)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [name, email, contact, company, category, complaint, reference]
     );
@@ -63,8 +63,8 @@ router.get("/", async (req, res) => {
 
     let query = `
       SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
-      FROM complaints c
-      LEFT JOIN employees e ON c.assigned_to = e.id
+      FROM tasks_complaint c
+      LEFT JOIN accounts_employeeprofile e ON c.assigned_to = e.id
       WHERE 1=1
     `;
     const params = [];
@@ -106,7 +106,7 @@ router.put("/:id/assign", async (req, res) => {
     }
 
     const [result] = await pool.query(
-      "UPDATE complaints SET assigned_to = ? WHERE id = ?",
+      "UPDATE tasks_complaint SET assigned_to = ? WHERE id = ?",
       [employeeId, id]
     );
 
@@ -117,8 +117,8 @@ router.put("/:id/assign", async (req, res) => {
     const [updatedComplaint] = await pool.query(
       `
       SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
-      FROM complaints c
-      LEFT JOIN employees e ON c.assigned_to = e.id
+      FROM tasks_complaint c
+      LEFT JOIN accounts_employeeprofile e ON c.assigned_to = e.id
       WHERE c.id = ?
       `,
       [id]
@@ -154,7 +154,7 @@ router.patch("/:id/status", async (req, res) => {
     }
 
     const [result] = await pool.query(
-      "UPDATE complaints SET status = ? WHERE id = ?",
+      "UPDATE tasks_complaint SET status = ? WHERE id = ?",
       [status.toLowerCase(), id]
     );
 
@@ -165,8 +165,8 @@ router.patch("/:id/status", async (req, res) => {
     const [updatedComplaint] = await pool.query(
       `
       SELECT c.*, e.name AS assigned_name, e.email AS assigned_email
-      FROM complaints c
-      LEFT JOIN employees e ON c.assigned_to = e.id
+      FROM tasks_complaint c
+      LEFT JOIN accounts_employeeprofile e ON c.assigned_to = e.id
       WHERE c.id = ?
       `,
       [id]

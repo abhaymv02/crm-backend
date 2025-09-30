@@ -1,12 +1,12 @@
-const express = require('express');
-const { sendEmail, sendComplaintConfirmation } = require('../services/emailService');
+const express = require("express");
+const { sendEmail, sendComplaintConfirmation } = require("../services/emailService");
 const router = express.Router();
 
 // ---------------------- UTILITY ----------------------
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // ---------------------- POST /send-email ----------------------
-router.post('/send-email', async (req, res) => {
+router.post("/send-email", async (req, res) => {
   try {
     const { to, subject, body } = req.body;
 
@@ -16,7 +16,7 @@ router.post('/send-email', async (req, res) => {
     if (!to || !subject || !body) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: to, subject, and body are required',
+        message: "Missing required fields: to, subject, and body are required",
       });
     }
 
@@ -24,7 +24,7 @@ router.post('/send-email', async (req, res) => {
     if (!isValidEmail(to)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid email address provided',
+        message: "Invalid email address provided",
       });
     }
 
@@ -35,36 +35,36 @@ router.post('/send-email', async (req, res) => {
     if (result.success) {
       return res.status(200).json({
         success: true,
-        message: 'Email sent successfully',
+        message: "Email sent successfully",
         messageId: result.messageId,
       });
     } else {
       return res.status(500).json({
         success: false,
-        message: 'Failed to send email: ' + result.message,
+        message: `Failed to send email: ${result.message}`,
       });
     }
   } catch (error) {
-    console.error('❌ /send-email error:', error);
+    console.error("❌ /send-email error:", error.message);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error while sending email',
+      message: "Internal server error while sending email",
     });
   }
 });
 
 // ---------------------- POST /send-confirmation ----------------------
-router.post('/send-confirmation', async (req, res) => {
+router.post("/send-confirmation", async (req, res) => {
   try {
     const { to, name, contact, company, category, complaint, reference } = req.body;
 
     console.log("📩 /send-confirmation request body:", req.body);
 
     // Validate required fields
-    if (!to || !name) {
+    if (!to || !name || !reference) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: to and name are required',
+        message: "Missing required fields: to, name, and reference are required",
       });
     }
 
@@ -72,17 +72,17 @@ router.post('/send-confirmation', async (req, res) => {
     if (!isValidEmail(to)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid email address provided',
+        message: "Invalid email address provided",
       });
     }
 
     const result = await sendComplaintConfirmation({
-      email: to,  // ✅ required key for emailService
+      email: to,
       name,
-      contact,
-      company,
-      category,
-      complaint,
+      contact: contact || "Not provided",
+      company: company || "Not provided",
+      category: category || "General",
+      complaint: complaint || "No details provided",
       reference,
     });
 
@@ -91,21 +91,21 @@ router.post('/send-confirmation', async (req, res) => {
     if (result.success) {
       return res.status(200).json({
         success: true,
-        message: 'Confirmation email sent successfully',
+        message: "Confirmation email sent successfully",
         messageId: result.messageId,
         reference: result.reference,
       });
     } else {
       return res.status(500).json({
         success: false,
-        message: 'Failed to send confirmation email: ' + result.message,
+        message: `Failed to send confirmation email: ${result.message}`,
       });
     }
   } catch (error) {
-    console.error('❌ /send-confirmation error:', error);
+    console.error("❌ /send-confirmation error:", error.message);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error while sending confirmation email',
+      message: "Internal server error while sending confirmation email",
     });
   }
 });

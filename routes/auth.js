@@ -22,7 +22,7 @@ router.post("/login", async (req, res) => {
 
     // MySQL query to find user by email or username
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1",
+      "SELECT * FROM auth_user WHERE email = ? OR username = ? LIMIT 1",
       [email || "", username || ""]
     );
 

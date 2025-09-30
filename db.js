@@ -2,10 +2,10 @@ require("dotenv").config();
 const mysql = require("mysql2/promise");
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "crm_db",
+  host: process.env.DB_HOST || "",
+  user: process.env.DB_USER || "vivcomae_Task",
+  password: process.env.DB_PASSWORD || "Vivcom@123",
+  database: process.env.DB_NAME || "vivcomae_Task",
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
   connectionLimit: 10,

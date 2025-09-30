@@ -28,24 +28,48 @@ router.post("/", async (req, res) => {
   try {
     let { title, description, priority, assignedTo, endDate, status } = req.body;
 
+    // Validate status
+    const validStatuses = ['pending', 'in-progress', 'resolved'];
+    const normalizedStatus = status
+      ? status.toLowerCase().replace(' ', '-') === 'completed'
+        ? 'resolved'
+        : status.toLowerCase().replace(' ', '-') === 'in progress'
+          ? 'in-progress'
+          : status.toLowerCase()
+      : 'pending';
+    if (!validStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({ success: false, message: `Invalid status value: ${status}. Must be one of ${validStatuses.join(', ')}` });
+    }
+
+    // Validate priority
+    const validPriorities = ['low', 'medium', 'high'];
+    if (priority && !validPriorities.includes(priority.toLowerCase())) {
+      return res.status(400).json({ success: false, message: `Invalid priority value: ${priority}. Must be one of ${validPriorities.join(', ')}` });
+    }
+
     let assignedToId = null;
     if (assignedTo) {
-      const [empRows] = await pool.query("SELECT id FROM employees WHERE username = ? LIMIT 1", [assignedTo]);
+      const [empRows] = await pool.query(
+        "SELECT id FROM accounts_employeeprofile WHERE username = ? LIMIT 1",
+        [assignedTo]
+      );
       if (empRows.length > 0) assignedToId = empRows[0].id;
     }
 
     const [result] = await pool.query(
       `INSERT INTO tasks (title, description, priority, assigned_to, end_date, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, description, priority, assignedToId, endDate, status || "pending"]
+      [title, description, priority || 'medium', assignedToId, endDate, normalizedStatus]
     );
 
     const taskId = result.insertId;
 
     const [taskRows] = await pool.query(
-      `SELECT t.*, e.username AS assigned_username, e.email AS assigned_email
-       FROM tasks t
-       LEFT JOIN employees e ON t.assigned_to = e.id
+      `SELECT t.*,
+              IFNULL(e.username, 'Unassigned') AS assigned_username,
+              IFNULL(e.email, '') AS assigned_email
+       FROM tasks_task t
+       LEFT JOIN accounts_employeeprofile e ON t.assigned_to = e.id
        WHERE t.id = ?`,
       [taskId]
     );
@@ -66,20 +90,30 @@ router.get("/", async (req, res) => {
 
   try {
     let query = `
-      SELECT t.*, e.username AS assigned_username, e.email AS assigned_email
-      FROM tasks t
-      LEFT JOIN employees e ON t.assigned_to = e.id
+      SELECT t.*,
+             IFNULL(e.username, 'Unassigned') AS assigned_username,
+             IFNULL(e.email, '') AS assigned_email
+      FROM tasks_task t
+      LEFT JOIN accounts_employeeprofile e ON t.assigned_to = e.id
       WHERE 1=1
     `;
     const params = [];
 
     if (req.query.status) {
+      const normalizedStatus = req.query.status.toLowerCase().replace(' ', '-') === 'completed'
+        ? 'resolved'
+        : req.query.status.toLowerCase().replace(' ', '-') === 'in progress'
+          ? 'in-progress'
+          : req.query.status.toLowerCase();
+      if (!['pending', 'in-progress', 'resolved'].includes(normalizedStatus)) {
+        return res.status(400).json({ success: false, message: `Invalid status filter: ${req.query.status}` });
+      }
       query += " AND t.status = ?";
-      params.push(req.query.status);
+      params.push(normalizedStatus);
     }
 
     if (user.role !== "admin") {
-      query += " AND e.username = ?";
+      query += " AND (e.username = ? OR t.assigned_to IS NULL)";
       params.push(user.username);
     } else if (req.query.assignedTo) {
       query += " AND e.username = ?";
@@ -89,7 +123,6 @@ router.get("/", async (req, res) => {
     const [tasks] = await pool.query(query, params);
 
     console.log(`📌 ${user.username || "unknown"} (${user.role}) fetched ${tasks.length} tasks`);
-
     res.json({ success: true, tasks });
   } catch (err) {
     console.error("❌ Error fetching tasks:", err);
@@ -107,6 +140,25 @@ router.put("/:id", async (req, res) => {
     const updates = [];
     const params = [];
 
+    // Normalize and validate status
+    const validStatuses = ['pending', 'in-progress', 'resolved'];
+    const normalizedStatus = status
+      ? status.toLowerCase().replace(' ', '-') === 'completed'
+        ? 'resolved'
+        : status.toLowerCase().replace(' ', '-') === 'in progress'
+          ? 'in-progress'
+          : status.toLowerCase()
+      : null;
+    if (normalizedStatus && !validStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({ success: false, message: `Invalid status value: ${status}. Must be one of ${validStatuses.join(', ')}` });
+    }
+
+    // Validate priority
+    const validPriorities = ['low', 'medium', 'high'];
+    if (priority && !validPriorities.includes(priority.toLowerCase())) {
+      return res.status(400).json({ success: false, message: `Invalid priority value: ${priority}. Must be one of ${validPriorities.join(', ')}` });
+    }
+
     if (title) {
       updates.push("title = ?");
       params.push(title);
@@ -123,20 +175,27 @@ router.put("/:id", async (req, res) => {
       updates.push("end_date = ?");
       params.push(endDate);
     }
-    if (status) {
+    if (normalizedStatus) {
       updates.push("status = ?");
-      params.push(status);
+      params.push(normalizedStatus);
     }
     if (assignedTo) {
-      const [empRows] = await pool.query("SELECT id FROM employees WHERE username = ? LIMIT 1", [assignedTo]);
+      const [empRows] = await pool.query(
+        "SELECT id FROM accounts_employeeprofile WHERE username = ? LIMIT 1",
+        [assignedTo]
+      );
       updates.push("assigned_to = ?");
       params.push(empRows.length ? empRows[0].id : null);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: "No fields to update" });
     }
 
     params.push(req.params.id);
 
     const [result] = await pool.query(
-      `UPDATE tasks SET ${updates.join(", ")} WHERE id = ?`,
+      `UPDATE tasks_task SET ${updates.join(", ")} WHERE id = ?`,
       params
     );
 
@@ -145,15 +204,16 @@ router.put("/:id", async (req, res) => {
     }
 
     const [updatedTask] = await pool.query(
-      `SELECT t.*, e.username AS assigned_username, e.email AS assigned_email
-       FROM tasks t
-       LEFT JOIN employees e ON t.assigned_to = e.id
+      `SELECT t.*,
+              IFNULL(e.username, 'Unassigned') AS assigned_username,
+              IFNULL(e.email, '') AS assigned_email
+       FROM tasks_task t
+       LEFT JOIN accounts_employeeprofile e ON t.assigned_to = e.id
        WHERE t.id = ?`,
       [req.params.id]
     );
 
     console.log(`✏️ ${user.username || "unknown"} (${user.role}) updated task ${req.params.id}`);
-
     res.json({ success: true, task: updatedTask[0] });
   } catch (err) {
     console.error("❌ Error updating task:", err);
@@ -164,16 +224,27 @@ router.put("/:id", async (req, res) => {
 // ---------------- Delete Task ----------------
 router.delete("/:id", async (req, res) => {
   const user = getUserFromToken(req);
-  if (!user) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+  console.log(`🗑️ DELETE request received for task id=${req.params.id}`);
+  console.log("📌 Request headers:", req.headers);
+
+  if (!user) {
+    console.warn("❌ Unauthorized delete attempt");
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
 
   try {
-    const [result] = await pool.query("DELETE FROM tasks WHERE id = ?", [req.params.id]);
+    const taskId = req.params.id;
+    console.log(`🗑️ User ${user.username} (${user.role}) is deleting task id=${taskId}`);
+
+    const [result] = await pool.query("DELETE FROM tasks_task WHERE id = ?", [taskId]);
+
     if (result.affectedRows === 0) {
+      console.warn(`⚠️ Task ID ${taskId} not found`);
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    console.log(`🗑️ ${user.username || "unknown"} (${user.role}) deleted task ${req.params.id}`);
-
+    console.log(`✅ Task ID ${taskId} deleted by ${user.username}`);
     res.json({ success: true, message: "Task deleted" });
   } catch (err) {
     console.error("❌ Error deleting task:", err);
